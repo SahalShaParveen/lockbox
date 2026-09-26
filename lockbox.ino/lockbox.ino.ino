@@ -10,17 +10,20 @@
 MFRC522 rfid(SS_PIN, RST_PIN);
 Servo lockServo;
 
+// Authorised card UID
+byte authorisedUID[] = {0x7E, 0xF6, 0x51, 0x05};
+
 void setup() {
   Serial.begin(115200);
 
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
 
-  // Set up servo
+  // Servo
   lockServo.attach(SERVO_PIN);
-  lockServo.write(0);       // Locked position
+  lockServo.write(0);
 
-  // Set up RC522
+  // RC522
   SPI.begin(18, 19, 23, 5);
   rfid.PCD_Init();
 
@@ -29,12 +32,12 @@ void setup() {
 
 void loop() {
 
-  // No card detected
+  // Wait for a card
   if (!rfid.PICC_IsNewCardPresent()) {
     return;
   }
 
-  // Card detected, but couldn't read it
+  // Try to read the card
   if (!rfid.PICC_ReadCardSerial()) {
     return;
   }
@@ -44,7 +47,7 @@ void loop() {
 
   for (byte i = 0; i < rfid.uid.size; i++) {
     Serial.print(" ");
-    
+
     if (rfid.uid.uidByte[i] < 0x10) {
       Serial.print("0");
     }
@@ -54,29 +57,53 @@ void loop() {
 
   Serial.println();
 
-  // Blink LED 3 times
-  for (int i = 0; i < 3; i++) {
-    digitalWrite(LED_PIN, HIGH);
-    delay(50);
-    digitalWrite(LED_PIN, LOW);
-    delay(50);
+  // Check UID
+  bool authorised = true;
+
+  if (rfid.uid.size != sizeof(authorisedUID)) {
+    authorised = false;
+  } else {
+    for (byte i = 0; i < rfid.uid.size; i++) {
+      if (rfid.uid.uidByte[i] != authorisedUID[i]) {
+        authorised = false;
+        break;
+      }
+    }
   }
 
-  // Unlock
-  Serial.println("Unlocking...");
-  lockServo.write(90);
+  if (authorised) {
 
-  // Stay unlocked for 3 seconds
-  delay(3000);
+    Serial.println("ACCESS GRANTED");
 
-  // Lock again
-  Serial.println("Locking...");
-  lockServo.write(0);
+    // Blink LED 3 times
+    for (int i = 0; i < 3; i++) {
+      digitalWrite(LED_PIN, HIGH);
+      delay(150);
+      digitalWrite(LED_PIN, LOW);
+      delay(150);
+    }
 
-  // Finish communication with card
+    // Unlock
+    Serial.println("Unlocking...");
+    lockServo.write(90);
+
+    // Stay unlocked for 3 seconds
+    delay(3000);
+
+    // Lock again
+    Serial.println("Locking...");
+    lockServo.write(0);
+
+  } else {
+
+    Serial.println("ACCESS DENIED");
+
+  }
+
+  // Stop communicating with the card
   rfid.PICC_HaltA();
   rfid.PCD_StopCrypto1();
 
-  // Prevent the same card from immediately triggering again
+  // Prevent immediate retriggering
   delay(1000);
 }
