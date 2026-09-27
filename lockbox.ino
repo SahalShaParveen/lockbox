@@ -2,8 +2,13 @@
 #include <MFRC522.h>
 #include <ESP32Servo.h>
 
-const byte SS_PIN     = 5;
-const byte RST_PIN    = 22;
+const byte SS_PIN = 5;
+const byte RST_PIN = 22;
+const byte SCK_PIN = 18;
+const byte MOSI_PIN = 23;
+const byte MISO_PIN = 19; 
+
+
 const byte LED_PIN    = 2;
 const byte SERVO_PIN  = 13;
 const byte BUZZER_PIN = 27;
@@ -12,42 +17,27 @@ const byte BUZZER_PIN = 27;
 MFRC522 rfid(SS_PIN, RST_PIN);
 Servo lockServo;
 
-// Authorised card UID
-byte authorisedUID[] = {0x7E, 0xF6, 0x51, 0x05};
-
-
-void beep(int duration) {
-  digitalWrite(BUZZER_PIN, HIGH);
-  delay(duration);
-  digitalWrite(BUZZER_PIN, LOW);
-}
+const byte KEY[] = {0x7E, 0xF6, 0x51, 0x05};
 
 
 void setup() {
   Serial.begin(115200);
 
-  // LED
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
 
-  // Buzzer
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, LOW);
 
-  // Servo
   lockServo.attach(SERVO_PIN);
   lockServo.write(0);
 
-  // RC522
-  SPI.begin(18, 19, 23, 5);
+  SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);
   rfid.PCD_Init();
-
-  Serial.println("RFID lock ready.");
 }
 
 
 void loop() {
-
   // Wait for a card
   if (!rfid.PICC_IsNewCardPresent()) {
     return;
@@ -77,12 +67,12 @@ void loop() {
   // Check UID
   bool authorised = true;
 
-  if (rfid.uid.size != sizeof(authorisedUID)) {
+  if (rfid.uid.size != sizeof(KEY)) {
     authorised = false;
   } 
   else {
     for (byte i = 0; i < rfid.uid.size; i++) {
-      if (rfid.uid.uidByte[i] != authorisedUID[i]) {
+      if (rfid.uid.uidByte[i] != KEY[i]) {
         authorised = false;
         break;
       }
@@ -145,4 +135,10 @@ void loop() {
 
   // Prevent immediate retriggering
   delay(1000);
+}
+
+void beep(int duration) {
+  digitalWrite(BUZZER_PIN, HIGH);
+  delay(duration);
+  digitalWrite(BUZZER_PIN, LOW);
 }
