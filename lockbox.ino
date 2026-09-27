@@ -19,6 +19,19 @@ Servo lockServo;
 
 const byte KEY[] = {0x7E, 0xF6, 0x51, 0x05};
 
+bool readCard();
+void printUID();
+bool authorise();
+
+void grantAccess();
+void denyAccess();
+
+void unlock();
+void lock();
+
+void beep(int duration);
+void stopCardCommunication();
+
 
 void setup() {
   Serial.begin(115200);
@@ -38,107 +51,113 @@ void setup() {
 
 
 void loop() {
-  // Wait for a card
-  if (!rfid.PICC_IsNewCardPresent()) {
+  if (!readCard()){
     return;
   }
 
-  // Try to read the card
-  if (!rfid.PICC_ReadCardSerial()) {
-    return;
-  }
-
-  // Print UID
-  Serial.print("Card detected! UID:");
-
-  for (byte i = 0; i < rfid.uid.size; i++) {
-    Serial.print(" ");
-
-    if (rfid.uid.uidByte[i] < 0x10) {
-      Serial.print("0");
-    }
-
-    Serial.print(rfid.uid.uidByte[i], HEX);
-  }
-
-  Serial.println();
-
-
-  // Check UID
-  bool authorised = true;
-
-  if (rfid.uid.size != sizeof(KEY)) {
-    authorised = false;
-  } 
-  else {
-    for (byte i = 0; i < rfid.uid.size; i++) {
-      if (rfid.uid.uidByte[i] != KEY[i]) {
-        authorised = false;
-        break;
-      }
-    }
-  }
-
-
-  // =========================
-  // AUTHORISED
-  // =========================
+  printUID();
+  bool authorised = authorise();
 
   if (authorised) {
-
-    Serial.println("ACCESS GRANTED");
-
-    // One long beep
-    beep(500);
-
-    // Blink LED 3 times
-    for (int i = 0; i < 3; i++) {
-      digitalWrite(LED_PIN, HIGH);
-      delay(150);
-
-      digitalWrite(LED_PIN, LOW);
-      delay(150);
-    }
-
-    // Unlock
-    Serial.println("Unlocking...");
-    lockServo.write(90); 
-
-    // Stay unlocked
-    delay(3000);
-
-    // Lock again
-    Serial.println("Locking...");
-    lockServo.write(0);
+    grantAccess(); 
   }
-
-
-  // =========================
-  // UNAUTHORISED
-  // =========================
-
   else {
-
-    Serial.println("ACCESS DENIED");
-
-    // Three short beeps
-    for (int i = 0; i < 3; i++) {
-      beep(150);
-      delay(100);
-    }
+    denyAccess();
   }
 
-
-  // Stop communication with card
-  rfid.PICC_HaltA();
-  rfid.PCD_StopCrypto1();
-
-  // Prevent immediate retriggering
+  stopCardCommunication();
   delay(1000);
 }
+
+
+void grantAccess(){
+  Serial.println("ACCESS GRANTED");  
+  unlock(); 
+  delay(3000); 
+  lock();
+}
+
+
+void denyAccess(){
+  Serial.println("ACCESS DENIED");
+
+  for (int i = 0; i < 3; i++) {
+    beep(100);
+    delay(50);
+  }
+
+  lock();
+}
+
+
+void unlock(){
+  digitalWrite(LED_PIN, HIGH);
+  beep(500);
+
+  lockServo.write(90); 
+}  
+
+
+void lock(){
+  lockServo.write(0);
+
+  beep(100);
+  digitalWrite(LED_PIN, LOW);
+}
+
+
+bool readCard(){
+    if (!rfid.PICC_IsNewCardPresent()){
+        return false;
+    }
+
+    if (!rfid.PICC_ReadCardSerial()){
+        return false;
+    }
+
+    return true;
+}
+
+
+void printUID(){
+    Serial.print("UID:");
+
+    for (byte i = 0; i < rfid.uid.size; i++){
+        Serial.print(" ");
+
+        if (rfid.uid.uidByte[i] < 0x10){
+            Serial.print("0");
+        }
+
+        Serial.print(rfid.uid.uidByte[i], HEX);
+    }
+    Serial.println();
+}
+
+
+bool authorise(){
+    if (rfid.uid.size != sizeof(KEY)){
+        return false;
+    }
+
+    for (byte i = 0; i < rfid.uid.size; i++){
+        if (rfid.uid.uidByte[i] != KEY[i]){
+            return false;
+        }
+    }
+
+    return true;
+}
+
 
 void beep(int duration) {
   digitalWrite(BUZZER_PIN, HIGH);
   delay(duration);
   digitalWrite(BUZZER_PIN, LOW);
 }
+
+
+void stopCardCommunication(){
+  rfid.PICC_HaltA();
+  rfid.PCD_StopCrypto1();
+} 
