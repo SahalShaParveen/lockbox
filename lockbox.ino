@@ -2,11 +2,12 @@
 #include <MFRC522.h>
 #include <ESP32Servo.h>
 
-#define SS_PIN     5
-#define RST_PIN    22
-#define LED_PIN    2
-#define SERVO_PIN  13
-#define BUZZER_PIN 27
+const byte SS_PIN     = 5;
+const byte RST_PIN    = 22;
+const byte LED_PIN    = 2;
+const byte SERVO_PIN  = 13;
+const byte BUZZER_PIN = 27;
+
 
 MFRC522 rfid(SS_PIN, RST_PIN);
 Servo lockServo;
@@ -111,7 +112,7 @@ void loop() {
 
     // Unlock
     Serial.println("Unlocking...");
-    lockServo.write(90);
+    lockServo.write(90); 
 
     // Stay unlocked
     delay(3000);
